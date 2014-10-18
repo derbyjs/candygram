@@ -10,7 +10,7 @@ backend default {
 }
 backend examples {
   .host = "127.0.0.1";
-  .port = "3000";
+  .port = "8080";
 }
 backend components {
   .host = "127.0.0.1";
