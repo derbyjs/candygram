@@ -40,7 +40,7 @@ sub vcl_recv {
     set req.backend = components;
   }
 
-  if (req.http.Upgrade ~ "(?i)websocket") {
+  if (req.http.upgrade ~ "(?i)websocket" || req.url ~ "^/channel") {
     return (pipe);
   }
 
@@ -78,4 +78,5 @@ sub vcl_pipe {
   if (req.http.upgrade) {
     set bereq.http.upgrade = req.http.upgrade;
   }
+  return (pipe);
 }
