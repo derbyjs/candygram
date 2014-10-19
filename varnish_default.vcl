@@ -8,14 +8,43 @@ backend default {
   .host = "127.0.0.1";
   .port = "4000";
 }
-backend examples {
-  .host = "127.0.0.1";
-  .port = "8080";
-}
 backend components {
   .host = "127.0.0.1";
   .port = "3330";
 }
+backend charts {
+  .host = "127.0.0.1";
+  .port = "8001";
+}
+backend chat {
+  .host = "127.0.0.1";
+  .port = "8002";
+}
+backend codemirror {
+  .host = "127.0.0.1";
+  .port = "8003";
+}
+backend directory {
+  .host = "127.0.0.1";
+  .port = "8004";
+}
+backend hello {
+  .host = "127.0.0.1";
+  .port = "8005";
+}
+backend sink {
+  .host = "127.0.0.1";
+  .port = "8006";
+}
+backend todos {
+  .host = "127.0.0.1";
+  .port = "8007";
+}
+backend widgets {
+  .host = "127.0.0.1";
+  .port = "8008";
+}
+
 
 sub vcl_recv {
   if (!req.http.Host) {
@@ -34,21 +63,29 @@ sub vcl_recv {
     }
   }
 
-  if (
-    req.http.Host ~ "^chat\." ||
-    req.http.Host ~ "^charts\." ||
-    req.http.Host ~ "^directory\." ||
-    req.http.Host ~ "^codemirror\." ||
-    req.http.Host ~ "^hello\." ||
-    req.http.Host ~ "^sink\." ||
-    req.http.Host ~ "^todos\." ||
-    req.http.Host ~ "^widgets\."
-  ) {
-    set req.backend = examples;
-  } else if (req.http.Host ~ "^components\.") {
+  if (req.http.Host ~ "^components\.") {
     set req.backend = components;
+  } else if (req.http.Host ~ "^charts\.") {
+    set req.backend = charts;
+  } else if (req.http.Host ~ "^chat\.") {
+    set req.backend = chat;
+  } else if (req.http.Host ~ "^codemirror\.") {
+    set req.backend = codemirror;
+  } else if (req.http.Host ~ "^directory\.") {
+    set req.backend = directory;
+  } else if (req.http.Host ~ "^hello\.") {
+    set req.backend = hello;
+  } else if (req.http.Host ~ "^sink\.") {
+    set req.backend = sink;
+  } else if (req.http.Host ~ "^todos\.") {
+    set req.backend = todos;
+  } else if (req.http.Host ~ "^widgets\.") {
+    set req.backend = widgets;
   }
 
+  if (req.http.Upgrade ~ "(?i)websocket") {
+    return (pipe);
+  }
   if (req.request != "GET" &&
       req.request != "HEAD" &&
       req.request != "PUT" &&
@@ -57,9 +94,6 @@ sub vcl_recv {
       req.request != "OPTIONS" &&
       req.request != "DELETE") {
     /* Non-RFC2616 or CONNECT which is weird. */
-    return (pipe);
-  }
-  if (req.http.Upgrade ~ "(?i)websocket") {
     return (pipe);
   }
   if (req.request != "GET" && req.request != "HEAD") {
@@ -73,31 +107,12 @@ sub vcl_recv {
   return (lookup);
 }
 
-sub vcl_hash {
-  hash_data(req.url);
-  if (req.http.host) {
-    hash_data(req.http.host);
-  } else {
-    hash_data(server.ip);
-  }
-  if (req.http.Origin) {
-    hash_data(req.http.Origin);
-  }
-  return (hash);
-}
-
 sub vcl_pipe {
-  # Note that only the first request to the backend will have
-  # X-Forwarded-For set.  If you use X-Forwarded-For and want to
-  # have it set for all requests, make sure to have:
-  set bereq.http.connection = "close";
-  # here.  It is not set by default as it might break some broken web
-  # applications, like IIS with NTLM authentication.
-
   # Websockets
   if (req.http.upgrade) {
     set bereq.http.upgrade = req.http.upgrade;
   }
+  set bereq.http.connection = "close";
 
   return (pipe);
 }
