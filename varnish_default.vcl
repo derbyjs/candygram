@@ -25,15 +25,6 @@ sub vcl_recv {
   set req.http.Host = regsub(req.http.Host, "^www\.", "");
   set req.http.Host = regsub(req.http.Host, ":80$", "");
 
-  if (req.restarts == 0) {
-    if (req.http.x-forwarded-for) {
-      set req.http.X-Forwarded-For =
-        req.http.X-Forwarded-For + ", " + client.ip;
-    } else {
-      set req.http.X-Forwarded-For = client.ip;
-    }
-  }
-
   if (
     req.http.Host ~ "^chat\." ||
     req.http.Host ~ "^charts\." ||
@@ -49,6 +40,18 @@ sub vcl_recv {
     set req.backend = components;
   }
 
+  if (req.http.Upgrade ~ "(?i)websocket") {
+    return (pipe);
+  }
+
+  if (req.restarts == 0) {
+    if (req.http.x-forwarded-for) {
+      set req.http.X-Forwarded-For =
+        req.http.X-Forwarded-For + ", " + client.ip;
+    } else {
+      set req.http.X-Forwarded-For = client.ip;
+    }
+  }
   if (req.request != "GET" &&
       req.request != "HEAD" &&
       req.request != "PUT" &&
@@ -57,9 +60,6 @@ sub vcl_recv {
       req.request != "OPTIONS" &&
       req.request != "DELETE") {
     /* Non-RFC2616 or CONNECT which is weird. */
-    return (pipe);
-  }
-  if (req.http.Upgrade ~ "(?i)websocket") {
     return (pipe);
   }
   if (req.request != "GET" && req.request != "HEAD") {
@@ -73,48 +73,9 @@ sub vcl_recv {
   return (lookup);
 }
 
-sub vcl_hash {
-  hash_data(req.url);
-  if (req.http.host) {
-    hash_data(req.http.host);
-  } else {
-    hash_data(server.ip);
-  }
-  if (req.http.Origin) {
-    hash_data(req.http.Origin);
-  }
-  return (hash);
-}
-
 sub vcl_pipe {
   # Websockets
   if (req.http.upgrade) {
     set bereq.http.upgrade = req.http.upgrade;
   }
-}
-
-sub vcl_fetch {
-  # Compress responses
-  if (beresp.http.content-type ~ "text"
-      || beresp.http.content-type ~ "json"
-      || beresp.http.content-type ~ "javascript") {
-    set beresp.do_gzip = true;
-  }
-}
-
-sub vcl_error {
-  if (obj.status == 750) {
-    # moved permanently
-    set obj.http.Location = req.http.Location;
-    set obj.status = 301;
-  } else if (obj.status == 752) {
-    # moved temporarily
-    set obj.http.Location = req.http.Location;
-    set obj.status = 302;
-  } else {
-    set obj.http.Content-Type = "text/html; charset=utf-8";
-    set obj.http.Retry-After = "5";
-    synthetic std.fileread("/etc/varnish/503.html");
-  }
-  return (deliver);
 }
