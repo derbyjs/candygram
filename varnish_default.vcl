@@ -59,6 +59,9 @@ sub vcl_recv {
     /* Non-RFC2616 or CONNECT which is weird. */
     return (pipe);
   }
+  if (req.http.Upgrade ~ "(?i)websocket") {
+    return (pipe);
+  }
   if (req.request != "GET" && req.request != "HEAD") {
     /* We only deal with GET and HEAD by default */
     return (pass);
